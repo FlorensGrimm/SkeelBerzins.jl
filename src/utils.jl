@@ -147,7 +147,8 @@ struct ProblemDefinition{T1, T2, T3, Tv <: AbstractVector, Ti <: Integer, Tm <: 
     """
     Jacobi matrix
     """
-    jac::Union{SparseMatrixCSC{elTv, Ti}, BandedMatrix{elTv, Matrix{elTv}, Base.OneTo{Ti}}}
+    # jac::Union{SparseMatrixCSC{elTv, Ti}, BandedMatrix{elTv, Matrix{elTv}, Base.OneTo{Ti}}}
+    jac::SparseMatrixCSC{elTv, Ti}
 
     """
     Number of design variables for PDE Constrained Optimization
@@ -195,7 +196,7 @@ Base.@kwdef struct Params
     solver::Symbol = :euler
 
     """
-    Defines a time step (either pass a `Float64` or a `Vector`) when using the implicit Euler method. 
+    Defines a time step (either pass a `Float64` or a `Vector`) when using the implicit Euler method.
     When set to `tstep=Inf`, it solves the stationary version of the problem.
     """
     tstep::Union{Float64, Vector{Float64}} = 1e-2
@@ -235,146 +236,6 @@ Base.@kwdef struct Params
     Number of design variables for PDE Constrained Optimization
     """
     nb_design_var::Int = 0
-end
-
-"""
-    implicitEuler!(y,u,problem,tau,mass_matrix,timeStep)
-
-Assemble the system for the implicit Euler method.
-"""
-function implicitEuler!(y, u, pb, tau, mass, timeStep)
-    assemble!(y, u, pb, timeStep)
-
-    y = reshape(y, (pb.npde, pb.Nx))
-    u = reshape(u, (pb.npde, pb.Nx))
-
-    for i ∈ 1:(pb.Nx)
-        for j ∈ 1:(pb.npde)
-            y[j, i] *= -1
-            y[j, i] += (1 / tau) * mass[j, i] * u[j, i]
-        end
-    end
-end
-
-"""
-    implicitEuler_stat!(y,u,problem,tau,timeStep)
-
-Assemble the system for the implicit Euler method (variant method for stationary problems).
-"""
-function implicitEuler_stat!(y, u, pb, tau, timeStep)
-    assemble!(y, u, pb, timeStep)
-
-    y = reshape(y, (pb.npde, pb.Nx))
-    u = reshape(u, (pb.npde, pb.Nx))
-
-    for i ∈ 1:(pb.Nx)
-        for j ∈ 1:(pb.npde)
-            y[j, i] *= -1
-            y[j, i] += (1 / tau) * u[j, i]
-        end
-    end
-end
-
-"""
-    newton(b, tau, timeStep, problem, mass_matrix, cache, rhs ; tol=1.0e-10, maxit=100, hist_flag=false, linSol=nothing)
-
-Newton method solving nonlinear system of equations. The Jacobi matrix used for the iteration rule is computed with
-the help of the [`SparseDiffTools.jl`](https://github.com/JuliaDiff/SparseDiffTools.jl) package.
-
-Input arguments:
-
-  - `b`: right-hand side of the system to solve.
-  - `tau`: constant time step used for the time discretization.
-  - `timeStep`: current time step of tspan.
-  - `problem`: Structure of type [`SkeelBerzins.ProblemDefinition`](@ref).
-  - `mass_matrix`: mass matrix of the problem, see [`SkeelBerzins.mass_matrix`][@ref].
-  - `cache`: `SparseDiffTools.ForwardColorCache`. To avoid allocating the cache in each iteration of the newton solver when computing the jacobian.
-  - `rhs`: preallocated vector to avoid creating allocations.
-
-Keyword arguments:
-
-  - `tol`: tolerance or stoppping criteria (by default to `1.0e-10`).
-  - `maxit`: maximum number of iterations (by default to `100`).
-  - `hist_flag`: flag to save the history and returns it (by default to `false`).
-  - `linSol`: choice of the solver for the LSE, see [`LinearSolve.jl`](https://docs.sciml.ai/LinearSolve/stable/solvers/solvers/) (by default `nothing`).
-
-Returns the solution of the nonlinear system of equations and if `hist_flag=true`, the history of the solver.
-"""
-function newton(b, tau, timeStep, pb, mass, cache, rhs; tol=1.0e-10, maxit=100, hist_flag=false, linSol=nothing)
-
-    if hist_flag
-        history = Float64[]
-    end
-
-    unP1 = copy(b)
-
-    for _ ∈ 1:maxit
-        forwarddiff_color_jacobian!(pb.jac, (y, u) -> implicitEuler!(y, u, pb, tau, mass, timeStep), unP1, cache)
-        value!(rhs, cache)
-        rhs .= rhs .- (1 ./ tau) .* b
-
-        # Solving the LSE using the LinearSolve.jl package
-        prob = LinearProblem(pb.jac, rhs)
-        sol1 = solve(prob, linSol)
-        h = sol1.u
-
-        unP1 .= unP1 .- h
-
-        nm = norm(h)
-
-        if hist_flag
-            push!(history, nm)
-        end
-
-        if nm < tol && hist_flag
-            return unP1, history
-        elseif nm < tol
-            return unP1
-        end
-    end
-
-    throw("convergence failed")
-end
-
-"""
-    newton_stat(b, tau, timeStep, problem, cache, rhs ; tol=1.0e-10, maxit=100, hist_flag=false, linSol=nothing)
-
-Newton method solving nonlinear system of equations (variant of [`newton`](@ref) for stationary problems).
-"""
-function newton_stat(b, tau, timeStep, pb, cache, rhs; tol=1.0e-10, maxit=100, hist_flag=false, linSol=nothing)
-
-    if hist_flag
-        history = Float64[]
-    end
-
-    unP1 = copy(b)
-
-    for _ ∈ 1:maxit
-        forwarddiff_color_jacobian!(pb.jac, (y, u) -> implicitEuler_stat!(y, u, pb, tau, timeStep), unP1, cache)
-        value!(rhs, cache)
-        rhs .= rhs .- (1 ./ tau) .* b
-
-        # Solving the LSE using the LinearSolve.jl package
-        prob = LinearProblem(pb.jac, rhs)
-        sol1 = solve(prob, linSol)
-        h = sol1.u
-
-        unP1 .= unP1 .- h
-
-        nm = norm(h)
-
-        if hist_flag
-            push!(history, nm)
-        end
-
-        if nm < tol && hist_flag
-            return unP1, history
-        elseif nm < tol
-            return unP1
-        end
-    end
-
-    throw("convergence failed")
 end
 
 """
@@ -574,7 +435,7 @@ Input arguments:
 """
 function interpolate_sol_time(u_approx, t)
     if isapprox(t, u_approx.t[1]; atol=1.0e-10 * abs(u_approx.t[2] - u_approx.t[1]))
-        return u_approx[:,1]
+        return u_approx[:, 1]
     end
 
     idx = searchsortedfirst(u_approx.t, t)
@@ -584,13 +445,13 @@ function interpolate_sol_time(u_approx, t)
     end
 
     if t == u_approx.t[idx - 1]
-        return u_approx[:,idx - 1]
+        return u_approx[:, idx - 1]
     else
-        new_sol_interp = similar(u_approx[:,idx])
+        new_sol_interp = similar(u_approx[:, idx])
         dt = u_approx.t[idx] - u_approx.t[idx - 1]
         x1 = (u_approx.t[idx] - t) / dt
         x0 = (t - u_approx.t[idx - 1]) / dt
-        new_sol_interp .= x1 .* u_approx[:,idx - 1] .+ x0 .* u_approx[:,idx]
+        new_sol_interp .= x1 .* u_approx[:, idx - 1] .+ x0 .* u_approx[:, idx]
     end
 end
 
@@ -633,16 +494,7 @@ function problem_init(m, xmesh, tspan, pdefun::T1, icfun::T2, bdfun::T3, params)
 
     Ti = eltype(npde)
 
-    if params.sparsity == :sparseArrays
-        Tjac = SparseMatrixCSC{elTv, Ti}
-    elseif params.sparsity == :banded
-        Tjac = BandedMatrix{elTv, Matrix{elTv}, Base.OneTo{Ti}}
-    else
-        throw("Error: Invalid sparsity pattern selected. Please choose from the available options: :sparseArrays, :banded")
-    end
-
-    # Choosing how to initialize the jacobian with sparsity pattern
-    jac = get_sparsity_pattern(Tjac, Nx, npde, elTv)
+    jac = get_sparsity_pattern(SparseMatrixCSC{elTv, Ti}, Nx, npde, elTv)
 
     pb = ProblemDefinition{m, npde, singular, Tv, Ti, Tm, elTv, T1, T2, T3}(npde,
                                                                             Nx,
@@ -754,20 +606,6 @@ function get_sparsity_pattern(sparsity::Type{TMat},
         end
     end
     jac = sparse(row, column, vals)
-
-    jac
-end
-
-"""
-    get_sparsity_pattern(sparsity, Nx, npde, elTv)
-
-Function that provides the sparsity pattern in a BandedMatrix.
-"""
-function get_sparsity_pattern(sparsity::Type{TMat},
-                              Nx,
-                              npde,
-                              elTv) where {TMat <: BandedMatrices.AbstractBandedMatrix}
-    jac = BandedMatrix{elTv}(Ones(Nx * npde, Nx * npde), (2 * npde - 1, 2 * npde - 1)) # Not working for general numeric datatypes
 
     jac
 end

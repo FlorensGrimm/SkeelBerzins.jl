@@ -1,9 +1,9 @@
 module SkeelBerzins
 
-using BandedMatrices
+# using BandedMatrices
 using LinearAlgebra
 using SparseArrays
-using SparseDiffTools
+# using SparseDiffTools
 
 using RecursiveArrayTools
 using DocStringExtensions
