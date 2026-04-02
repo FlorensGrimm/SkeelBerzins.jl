@@ -275,7 +275,7 @@ function problem_init(m, xmesh, tspan, pdefun::T1, icfun::T2, bdfun::T3, params)
 
     Ti = eltype(npde)
 
-    # jac = get_sparsity_pattern(SparseMatrixCSC{elTv, Ti}, Nx, npde, elTv)
+    jac = get_sparsity_pattern(SparseMatrixCSC{elTv, Ti}, Nx, npde, elTv)
 
     pb = ProblemDefinition{m, npde, singular, Tv, Ti, Tm, elTv, T1, T2, T3}(npde,
                                                                             Nx,
@@ -283,7 +283,7 @@ function problem_init(m, xmesh, tspan, pdefun::T1, icfun::T2, bdfun::T3, params)
                                                                             tspan,
                                                                             singular,
                                                                             m,
-                                                                            # jac,
+                                                                            jac,
                                                                             params.nb_design_var,
                                                                             inival,
                                                                             ξ,
