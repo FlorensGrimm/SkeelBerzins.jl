@@ -144,11 +144,11 @@ struct ProblemDefinition{T1, T2, T3, Tv <: AbstractVector, Ti <: Integer, Tm <: 
     """
     m::Ti
 
-    # """
-    # Jacobi matrix
-    # """
-    # # jac::Union{SparseMatrixCSC{elTv, Ti}, BandedMatrix{elTv, Matrix{elTv}, Base.OneTo{Ti}}}
-    # jac::SparseMatrixCSC{elTv, Ti}
+    """
+    Jacobi matrix
+    """
+    # jac::Union{SparseMatrixCSC{elTv, Ti}, BandedMatrix{elTv, Matrix{elTv}, Base.OneTo{Ti}}}
+    jac::SparseMatrixCSC{elTv, Ti}
 
     """
     Number of design variables for PDE Constrained Optimization
@@ -350,43 +350,43 @@ function get_quad_points_weights(m, α, β, γ, singular)
     ξ, ζ
 end
 
-# """
-#     get_sparsity_pattern(sparsity, Nx, npde, elTv)
+"""
+    get_sparsity_pattern(sparsity, Nx, npde, elTv)
 
-# Function that provides the sparsity pattern in a SparseMatrixCSC.
-# """
-# function get_sparsity_pattern(sparsity::Type{TMat},
-#                               Nx,
-#                               npde,
-#                               elTv) where {TMat <: SparseArrays.AbstractSparseMatrixCSC}
-#     row = Int64[]
-#     column = Int64[]
-#     vals = elTv[]
+Function that provides the sparsity pattern in a SparseMatrixCSC.
+"""
+function get_sparsity_pattern(sparsity::Type{TMat},
+                              Nx,
+                              npde,
+                              elTv) where {TMat <: SparseArrays.AbstractSparseMatrixCSC}
+    row = Int64[]
+    column = Int64[]
+    vals = elTv[]
 
-#     for i ∈ 1:npde
-#         for j ∈ 1:(2 * npde)
-#             push!(row, i)
-#             push!(column, j)
-#             push!(vals, one(elTv))
-#         end
-#     end
-#     for i ∈ ((Nx - 1) * npde + 1):(Nx * npde)
-#         for j ∈ ((Nx - 2) * npde + 1):(Nx * npde)
-#             push!(row, i)
-#             push!(column, j)
-#             push!(vals, one(elTv))
-#         end
-#     end
-#     for i ∈ (npde + 1):npde:((Nx - 1) * npde)
-#         for k ∈ i:(i + npde - 1)
-#             for j ∈ (i - npde):(i + 2 * npde - 1)
-#                 push!(row, k)
-#                 push!(column, j)
-#                 push!(vals, one(elTv))
-#             end
-#         end
-#     end
-#     jac = sparse(row, column, vals)
+    for i ∈ 1:npde
+        for j ∈ 1:(2 * npde)
+            push!(row, i)
+            push!(column, j)
+            push!(vals, one(elTv))
+        end
+    end
+    for i ∈ ((Nx - 1) * npde + 1):(Nx * npde)
+        for j ∈ ((Nx - 2) * npde + 1):(Nx * npde)
+            push!(row, i)
+            push!(column, j)
+            push!(vals, one(elTv))
+        end
+    end
+    for i ∈ (npde + 1):npde:((Nx - 1) * npde)
+        for k ∈ i:(i + npde - 1)
+            for j ∈ (i - npde):(i + 2 * npde - 1)
+                push!(row, k)
+                push!(column, j)
+                push!(vals, one(elTv))
+            end
+        end
+    end
+    jac = sparse(row, column, vals)
 
-#     jac
-# end
+    jac
+end
