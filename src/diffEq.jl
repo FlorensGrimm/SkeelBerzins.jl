@@ -19,11 +19,10 @@ function SciMLBase.ODEFunction(pb::SkeelBerzins.ProblemDefinition)
     massMatrix, flag_DAE = SkeelBerzins.mass_matrix(pb)
     if flag_DAE
         SciMLBase.ODEFunction(SkeelBerzins.assemble!;
-                                        #   jac_prototype=pb.jac,
+                                          jac_prototype=pb.jac,
                                           mass_matrix=massMatrix)
     else
-        SciMLBase.ODEFunction(SkeelBerzins.assemble! # ; jac_prototype=pb.jac
-        )
+        SciMLBase.ODEFunction(SkeelBerzins.assemble!; jac_prototype=pb.jac)
     end
 end
 
